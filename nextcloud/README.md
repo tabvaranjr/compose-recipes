@@ -27,9 +27,10 @@ A secure Nextcloud setup using MariaDB and Redis. HTTPS support is handled by th
     htpasswd -nbB admin password
     ```
 
-3. Add the used-defined certificate files to `/certs'.
-    1. Copy a valid SSL certificate and private key to the `/certs` folder. Wildcard certificates are accepted.
-    2. Open `config/tls.yaml` and adjust the paths to the certificate and private key.
+3. Add the used-defined certificate files to `traefik/certs' folder.
+    1. Copy a valid SSL certificate and private key to the `traefik/certs` folder. Wildcard certificates are accepted.
+    2. Open `traefik/config/tls.yaml` and change the paths to point to the certificate and private key.
+        * Keep the starting slash (e.g. `/certs/MYCERT.crt`); this is the full path to the file(s) in the volume used by the Traefik container.
 
 4. Run `docker-compose` or `podman-compose`:
 ```sh
@@ -52,7 +53,7 @@ Some post-installation configuration is required for optimal performance.
 ## Notes and Caveats
 * The environment file contains usernames and passwords in clear text. 
     * They can be cleared after the first run.
-* `config/tls.yaml` must be modified.
+* `traefik/config/tls.yaml` must be modified.
     * [According to the Traefik documentation](https://doc.traefik.io/traefik/https/tls/), the file provider is the only way to change these definitions. They cannot be set up as Docker labels, and thus being provided by the environment file.
 * Accessing the Traefik dashboard requires an additional domain name.
     * A path prefix can be used instead, but debugging the reverse proxy is _far_ easier when a FQDN is used.
