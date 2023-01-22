@@ -1,0 +1,107 @@
+services:
+  reverse-proxy:
+    image: traefik:2.9
+    restart: unless-stopped
+    read_only: true
+    networks:
+      - proxy-net
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yaml:/traefik.yaml:ro
+      - ./traefik/certs:/certs:ro
+      - ./traefik/config:/config:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik-https.entrypoints=https
+      - traefik.http.routers.traefik-https.rule=Host(`${TRAEFIK_DOMAIN_NAME}`)
+      - traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_AUTH}
+      - traefik.http.routers.traefik-https.middlewares=traefik-auth
+      - traefik.http.routers.traefik-https.service=api@internal
+      - traefik.http.routers.traefik-https.tls=true
+
+  nextcloud-app:
+    image: nextcloud:stable
+    restart: unless-stopped
+    volumes:
+      - nextcloud-app-data:/var/www/html
+    networks:
+      - nextcloud-net
+      - proxy-net
+    ports:
+      - 8080:80
+    environment:
+      - REDIS_HOST=nextcloud-redis
+      - MYSQL_HOST=nextcloud-db
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER} 
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD} 
+      - NEXTCLOUD_TRUSTED_DOMAINS=${NEXTCLOUD_TRUSTED_DOMAINS}
+      - APACHE_DISABLE_REWRITE_IP=1
+      - TRUSTED_PROXIES=10.0.0.0/8
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nextcloud.entrypoints=https
+      - traefik.http.routers.nextcloud.rule=Host(`${NEXTCLOUD_DOMAIN_NAME}`)
+      - traefik.http.routers.nextcloud.tls=true
+      - traefik.http.routers.nextcloud.service=nextcloud
+      - traefik.http.services.nextcloud.loadbalancer.server.port=80
+      - traefik.http.middlewares.nextcloud-sts.headers.stsincludesubdomains=false
+      - traefik.http.middlewares.nextcloud-sts.headers.stspreload=true
+      - traefik.http.middlewares.nextcloud-sts.headers.stsseconds=31536000
+      - traefik.http.middlewares.nextcloud-sts.headers.isdevelopment=false
+      - traefik.http.middlewares.nextcloud-redir.redirectregex.permanent=true
+      - traefik.http.middlewares.nextcloud-redir.redirectregex.regex=https://(.*)/.well-known/(?:card|cal)dav
+      - traefik.http.middlewares.nextcloud-redir.redirectregex.replacement=https://$${1}/remote.php/dav
+      - traefik.http.routers.nextcloud.middlewares=nextcloud-sts,nextcloud-redir
+
+  nextcloud-redis:
+    image: redis:alpine
+    restart: unless-stopped
+    networks:
+      - nextcloud-net
+    volumes:
+      - nextcloud-redis-data:/data
+
+  nextcloud-db:
+    image: mariadb:10.8
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    restart: unless-stopped
+    volumes:
+      - nextcloud-db-data:/var/lib/mysql
+    networks:
+      - nextcloud-net
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+ 
+  nextcloud-cron:
+    image: nextcloud:apache
+    restart: unless-stopped
+    volumes:
+      - nextcloud-app-data:/var/www/html
+    networks:
+      - nextcloud-net
+    entrypoint: /cron.sh
+    labels:
+      - traefik.enable=false
+
+volumes:
+  nextcloud-app-data:
+  nextcloud-db-data:
+  nextcloud-redis-data:
+
+networks:
+  nextcloud-net:
+  proxy-net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.42.0.0/24

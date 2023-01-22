@@ -1,0 +1,23 @@
+api:
+  dashboard: true
+
+entrypoints:
+  http:
+    address: ":80"
+  https:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: nextcloud_proxy-net
+  file:
+    directory: "/config"
+    watch: true
+
+serversTransport:
+  insecureSkipVerify: true
+
+log:
+  level: DEBUG

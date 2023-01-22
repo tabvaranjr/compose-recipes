@@ -1,0 +1,11 @@
+# Private certificates/keys
+*.crt
+*.cert
+*.key
+*.pem
+
+# Environment files (apart from the sample).
+.env
+.env.*
+!.env.sample
+

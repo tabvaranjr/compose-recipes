@@ -1,0 +1,7 @@
+tls:
+  certificates:
+    - certFile: /certs/EXAMPLE.TLD.crt
+      keyFile: /certs/EXAMPLE.TLD.key
+  options:
+    default:
+      minVersion: VersionTLS13
